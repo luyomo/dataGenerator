@@ -1,0 +1,17 @@
+* How to make the tool
+1. Prepare one golang to select meta data
+select COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE DATETIME_PRECISION, COLUMN_TYPE, COLUMN_KEY  from information_schema.columns where table_schema = 'dev_tb6290_4' and table_name = 'SummaryCategoryTable' order by ORDINAL_POSITION;
+
+2. Get all the primary keys from meta data
+
+3. Get the unique data from the primary keys
+
+4. Generate data from the data type
+4.1 int -> random()
+4.2 decimal ->number random + decimal random 
+4.3 varchar -> length random + content random
+4.4 date -> random()
+4.5 timestamp -> date random() + timestampe random()
+
+* Development
+go get -u github.com/go-sql-driver/mysql
