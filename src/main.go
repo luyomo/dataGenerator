@@ -7,7 +7,7 @@ import (
     "strings"
     "math/rand"
     "math"
-    "strconv"
+//    "strconv"
     _ "github.com/go-sql-driver/mysql"
 )
 
@@ -50,64 +50,74 @@ func main() {
             fmt.Printf("The square number of 13 is: %d", tableMeta.columnName)
         }
         listTableMeta = append(listTableMeta, tableMeta)
-
-        //if (tableMeta.dataType.Valid == true) {
-        //    fmt.Printf("columnType is :  %s \n", tableMeta.dataType.String)
-        //    switch tableMeta.dataType.String {
-        //        case "varchar" : generateString(10)
-        //    }
-        //}else{
-        //    fmt.Printf(" column name: It:s unvalid string \n")
-        //}
-
-
-
-        //if (tableMeta.columnName.Valid == true){
-        //    fmt.Printf(" columnName:  %s \n", tableMeta.columnName.String)
-        //}else{
-        //    fmt.Printf(" column name: It:s unvalid string \n")
-        //}
-
-        //if (tableMeta.datetimePrecision.Valid == true){
-        //    fmt.Printf(" The date time is  %s \n", tableMeta.datetimePrecision.Int64)
-        //}else{
-        //    fmt.Printf(" datetimePrecison \n")
-        //}
     }
-
-    var colValue string
-    for _, tableMeta := range listTableMeta {
-        if (tableMeta.dataType.Valid == true) {
-            switch tableMeta.dataType.String {
-                case "varchar" : 
-                    colValue = generateString(int(tableMeta.characterMaximumLength.Int64))
-                    fmt.Printf("               The string value is <%s> \n", colValue)
-                case "int":
-                    colValue = generateInt()
-                    fmt.Printf("               The int value is <%s> \n", colValue)
-                case "char":
-                    colValue = generateChar(int(tableMeta.characterMaximumLength.Int64))
-                    fmt.Printf("               The char value is <%s> \n", colValue)
-                case "decimal":
-                    colValue = generateDecimal(int(tableMeta.numericPrecision.Int64), int(tableMeta.numericScale.Int64))
-                    fmt.Printf("               The decimal value is <%s> \n", colValue)
-                default:
-                    fmt.Printf("columnType is :  %s \n", tableMeta.dataType.String)
-            }
-        }
-    }
-
-
     if rows.Err() != nil {
         fmt.Printf("The error is ", rows.Err())
     }
 
-    var data []string
-    data = append(data, "\"value 01\"")
-    data = append(data, "value 02")
-    data = append(data, "value 03")
-    data = append(data, "value 04")
-    fmt.Printf("The error is %s ", strings.Join(data, ","))
+    // Original smt
+    smt := "insert into %s.%s(%s) values %s"
+
+    // Generate the columns list
+    colStrings := []string{}
+    arrMarks := []string{}
+    for _, tableMeta := range listTableMeta {
+        colStrings = append(colStrings, tableMeta.columnName.String)
+        arrMarks = append(arrMarks, "?")
+    }
+    strMarks := "(" + strings.Join(arrMarks, ",") + ")"
+    strCols := strings.Join(colStrings, ",")
+    fmt.Printf("All the columns are %s", smt)
+    fmt.Printf("The marks is %s", strMarks)
+
+    valueStrings := []string{}
+    valueArgs := []interface{}{}
+
+    for range [100]int{} {
+        fmt.Printf("\n\n")
+
+        valueStrings = append(valueStrings, strMarks)
+        
+        for _, tableMeta := range listTableMeta {
+            if (tableMeta.dataType.Valid == true) {
+                switch tableMeta.dataType.String {
+                    case "varchar" : 
+                        valueArgs = append(valueArgs, generateString(int(tableMeta.characterMaximumLength.Int64)))
+                    case "int":
+                        valueArgs = append(valueArgs, generateInt())
+                    case "char":
+                        valueArgs = append(valueArgs,generateChar(int(tableMeta.characterMaximumLength.Int64)))
+                    case "decimal":
+                        valueArgs = append(valueArgs, generateDecimal(int(tableMeta.numericPrecision.Int64), int(tableMeta.numericScale.Int64)))
+                    default:
+                        fmt.Printf("columnType is :  %s \n", tableMeta.dataType.String)
+                }
+            }
+        }
+    }
+    smt = fmt.Sprintf(smt, "dev_tb6290_4", "SummaryCategoryTable",  strCols, strings.Join(valueStrings, ","))
+
+    tx, err := db.Begin()
+    if err != nil {
+        fmt.Printf("--------")
+    }
+    defer tx.Rollback()
+    stmt, err := tx.Prepare(smt)
+    if err != nil {
+        fmt.Printf("aaaaaa--------")
+    }
+    fmt.Println(valueArgs)
+    defer stmt.Close() // danger!
+    	_, err = stmt.Exec(valueArgs...)
+    	if err != nil {
+                fmt.Printf("bbbbbbbaaaaaa--------")
+                fmt.Println(err)
+    	}
+    err = tx.Commit()
+    if err != nil {
+                fmt.Printf("xxxxxxxxxxxaa--------")
+    }
+
 }
 
 func generateData(tableMeta TableMeta, numRows int){
@@ -123,8 +133,8 @@ func generateString(maxSize int) string {
 }
 
 // Generate random int
-func generateInt() string {
-    return strconv.Itoa(rand.Intn(2147483647))
+func generateInt() int {
+    return rand.Intn(2147483647)
 }
 // Generate the random string
 func generateChar(size int) string {
@@ -136,9 +146,10 @@ func generateChar(size int) string {
 }
 
 // Generate random decimal
-func generateDecimal(precision int, scale int) string {
+func generateDecimal(precision int, scale int)  float64{
     power10 := math.Pow10(scale)
     randInt := rand.Intn(int(math.Pow10(precision - scale))) - 1
+    return (math.Round(rand.Float64()*power10)/power10) + float64(randInt)
 
-    return fmt.Sprintf("%d.%d", randInt,  int(math.Round(rand.Float64()*power10)))
+    //return fmt.Sprintf("%d.%d", randInt,  int(math.Round(rand.Float64()*power10)))
 }
