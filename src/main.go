@@ -38,10 +38,10 @@ func main() {
 
     var tableMeta TableMeta
 
-    var queryStr string = "select COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, DATETIME_PRECISION, COLUMN_TYPE, COLUMN_KEY  from information_schema.columns where table_schema = 'dev_tb6290_4' and table_name = 'SummaryCategoryTable' order by ORDINAL_POSITION"
+    var queryStr string = "select COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, DATETIME_PRECISION, COLUMN_TYPE, COLUMN_KEY  from information_schema.columns where table_schema = 'dev_tb6290_4' and table_name = 'TransactionHead' order by ORDINAL_POSITION"
     rows, err := db.Query(queryStr)
     defer rows.Close()
-    fmt.Printf("Starting before fetching the data ")
+    //fmt.Printf("Starting before fetching the data ")
 
     var listTableMeta []TableMeta
     
@@ -67,55 +67,68 @@ func main() {
     }
     strMarks := "(" + strings.Join(arrMarks, ",") + ")"
     strCols := strings.Join(colStrings, ",")
-    fmt.Printf("All the columns are %s", smt)
-    fmt.Printf("The marks is %s", strMarks)
+    //fmt.Printf("All the columns are %s", smt)
+    //fmt.Printf("The marks is %s", strMarks)
 
-    valueStrings := []string{}
-    valueArgs := []interface{}{}
 
-    for range [100]int{} {
-        fmt.Printf("\n\n")
-
-        valueStrings = append(valueStrings, strMarks)
-        
-        for _, tableMeta := range listTableMeta {
-            if (tableMeta.dataType.Valid == true) {
-                switch tableMeta.dataType.String {
-                    case "varchar" : 
-                        valueArgs = append(valueArgs, generateString(int(tableMeta.characterMaximumLength.Int64)))
-                    case "int":
-                        valueArgs = append(valueArgs, generateInt())
-                    case "char":
-                        valueArgs = append(valueArgs,generateChar(int(tableMeta.characterMaximumLength.Int64)))
-                    case "decimal":
-                        valueArgs = append(valueArgs, generateDecimal(int(tableMeta.numericPrecision.Int64), int(tableMeta.numericScale.Int64)))
-                    default:
-                        fmt.Printf("columnType is :  %s \n", tableMeta.dataType.String)
+    for range [10000]int{} {
+        valueStrings := []string{}
+        valueArgs := []interface{}{}
+        for range [500]int{} {
+            //fmt.Printf("\n\n")
+    
+            valueStrings = append(valueStrings, strMarks)
+            
+            for _, tableMeta := range listTableMeta {
+                if (tableMeta.dataType.Valid == true) {
+                    switch tableMeta.dataType.String {
+                        case "varchar" : 
+                            valueArgs = append(valueArgs, generateString(int(tableMeta.characterMaximumLength.Int64)))
+                        case "text" : 
+                            valueArgs = append(valueArgs, generateString(10000))
+                        case "int":
+                            valueArgs = append(valueArgs, generateInt())
+                        case "tinyint":
+                            valueArgs = append(valueArgs, generateTinyint())
+                        case "bigint":
+                            valueArgs = append(valueArgs, generateBigint())
+                        case "char":
+                            valueArgs = append(valueArgs,generateChar(int(tableMeta.characterMaximumLength.Int64)))
+                        case "decimal":
+                            valueArgs = append(valueArgs, generateDecimal(int(tableMeta.numericPrecision.Int64), int(tableMeta.numericScale.Int64)))
+                        case "datetime":
+                            valueArgs = append(valueArgs, generateDatetime())
+                        default:
+                            fmt.Printf("columnType is :  %s \n", tableMeta.dataType.String)
+                    }
                 }
             }
         }
-    }
-    smt = fmt.Sprintf(smt, "dev_tb6290_4", "SummaryCategoryTable",  strCols, strings.Join(valueStrings, ","))
-
-    tx, err := db.Begin()
-    if err != nil {
-        fmt.Printf("--------")
-    }
-    defer tx.Rollback()
-    stmt, err := tx.Prepare(smt)
-    if err != nil {
-        fmt.Printf("aaaaaa--------")
-    }
-    fmt.Println(valueArgs)
-    defer stmt.Close() // danger!
-    	_, err = stmt.Exec(valueArgs...)
-    	if err != nil {
-                fmt.Printf("bbbbbbbaaaaaa--------")
-                fmt.Println(err)
-    	}
-    err = tx.Commit()
-    if err != nil {
-                fmt.Printf("xxxxxxxxxxxaa--------")
+        insertSmt := fmt.Sprintf(smt, "dev_tb6290_4", "TransactionHead",  strCols, strings.Join(valueStrings, ","))
+        //fmt.Printf("The query is %s", insertSmt)
+    
+        tx, err := db.Begin()
+        if err != nil {
+            fmt.Printf("Error on starting transaction ")
+            fmt.Println(err)
+        }
+        defer tx.Rollback()
+        stmt, err := tx.Prepare(insertSmt)
+        if err != nil {
+            fmt.Printf("Error on preparing query")
+            fmt.Println(err)
+        }
+        //fmt.Println(valueArgs)
+        defer stmt.Close() // danger!
+        	_, err = stmt.Exec(valueArgs...)
+        	if err != nil {
+                    fmt.Printf("bbbbbbbaaaaaa--------")
+                    fmt.Println(err)
+        	}
+        err = tx.Commit()
+        if err != nil {
+                    fmt.Printf("xxxxxxxxxxxaa--------")
+        }
     }
 
 }
@@ -136,6 +149,17 @@ func generateString(maxSize int) string {
 func generateInt() int {
     return rand.Intn(2147483647)
 }
+
+// Generate random int
+func generateBigint() int64 {
+    return rand.Int63n(9223372036854775807)
+}
+
+// Generate random tinyint
+func generateTinyint() int {
+    return rand.Intn(127)
+}
+
 // Generate the random string
 func generateChar(size int) string {
     b := make([]rune, size)
@@ -145,10 +169,29 @@ func generateChar(size int) string {
     return string(b)
 }
 
+// Generate random datetime
+func generateDatetime() time.Time {
+    min := time.Date(2010, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+    max := time.Date(2030, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+    delta := max - min
+
+    sec := rand.Int63n(delta) + min
+    //fmt.Printf("This is the testing    %d  \n", sec)
+    return time.Unix(sec, 0)
+}
+
 // Generate random decimal
 func generateDecimal(precision int, scale int)  float64{
     power10 := math.Pow10(scale)
-    randInt := rand.Intn(int(math.Pow10(precision - scale))) - 1
+    //fmt.Printf("The precisiin is %d, the scale is %d", precision, scale)
+
+    var num int
+    if ( precision - scale > 10 ){
+        num = 10
+    } else {
+        num =  precision - scale
+    }
+    randInt := rand.Int63n(int64(math.Pow10(num))) - 1
     return (math.Round(rand.Float64()*power10)/power10) + float64(randInt)
 
     //return fmt.Sprintf("%d.%d", randInt,  int(math.Round(rand.Float64()*power10)))
