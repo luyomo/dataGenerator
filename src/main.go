@@ -21,6 +21,7 @@ type TableMeta struct {
     datetimePrecision       sql.NullInt64      `json:"DATETIME_PRECISION"`
     columnType              sql.NullString     `json:"COLUMN_TYPE"`
     columnKey               sql.NullString     `json:"COLUMN_KEY"`
+    extra                   sql.NullString     `json:"EXTRA"`
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -38,7 +39,7 @@ func main() {
 
     var tableMeta TableMeta
 
-    var queryStr string = "select COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, DATETIME_PRECISION, COLUMN_TYPE, COLUMN_KEY  from information_schema.columns where table_schema = 'dev_tb6290_4' and table_name = 'TransactionHead' order by ORDINAL_POSITION"
+    var queryStr string = "select COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, DATETIME_PRECISION, COLUMN_TYPE, COLUMN_KEY, EXTRA  from information_schema.columns where table_schema = 'dev_tb6290_4' and table_name = 'TransactionHead' order by ORDINAL_POSITION"
     rows, err := db.Query(queryStr)
     defer rows.Close()
     //fmt.Printf("Starting before fetching the data ")
@@ -46,7 +47,7 @@ func main() {
     var listTableMeta []TableMeta
     
     for rows.Next() {
-        if err := rows.Scan(&tableMeta.columnName, &tableMeta.ordinalPosition, &tableMeta.dataType, &tableMeta.characterMaximumLength, &tableMeta.numericPrecision, &tableMeta.numericScale, &tableMeta.datetimePrecision, &tableMeta.columnType, &tableMeta.columnKey); err != nil {
+        if err := rows.Scan(&tableMeta.columnName, &tableMeta.ordinalPosition, &tableMeta.dataType, &tableMeta.characterMaximumLength, &tableMeta.numericPrecision, &tableMeta.numericScale, &tableMeta.datetimePrecision, &tableMeta.columnType, &tableMeta.columnKey, &tableMeta.extra); err != nil {
             fmt.Printf("The square number of 13 is: %d", tableMeta.columnName)
         }
         listTableMeta = append(listTableMeta, tableMeta)
@@ -62,25 +63,30 @@ func main() {
     colStrings := []string{}
     arrMarks := []string{}
     for _, tableMeta := range listTableMeta {
-        colStrings = append(colStrings, tableMeta.columnName.String)
-        arrMarks = append(arrMarks, "?")
+        if tableMeta.extra.Valid == false || tableMeta.extra.String != "auto_increment" {
+            colStrings = append(colStrings, tableMeta.columnName.String)
+            arrMarks = append(arrMarks, "?")
+        }
     }
     strMarks := "(" + strings.Join(arrMarks, ",") + ")"
     strCols := strings.Join(colStrings, ",")
-    //fmt.Printf("All the columns are %s", smt)
-    //fmt.Printf("The marks is %s", strMarks)
+    //fmt.Printf("All the columns are %s \n", smt)
+    //fmt.Printf("The marks is %s \n", strMarks)
 
 
-    for range [10000]int{} {
+    for range [1]int{} {
         valueStrings := []string{}
         valueArgs := []interface{}{}
-        for range [500]int{} {
+        for range [1]int{} {
             //fmt.Printf("\n\n")
     
             valueStrings = append(valueStrings, strMarks)
             
             for _, tableMeta := range listTableMeta {
                 if (tableMeta.dataType.Valid == true) {
+                    if tableMeta.extra.Valid == true && tableMeta.extra.String == "auto_increment" {
+                        continue
+                    }
                     switch tableMeta.dataType.String {
                         case "varchar" : 
                             valueArgs = append(valueArgs, generateString(int(tableMeta.characterMaximumLength.Int64)))
